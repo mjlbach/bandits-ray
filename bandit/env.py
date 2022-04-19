@@ -7,21 +7,25 @@ class Choice(Enum):
     left = 0
     right = 1
 
+
 class Category(Enum):
     square = 0
     circle = 1
 
+
 class DebuggingEnv(gym.Env):
-    def __init__(self):
+    def __init__(self, debug=False):
         super().__init__()
 
         self.action_space = Discrete(2)
-        self.observation_space = Dict({
-            'task_obs': Box(low=0, high=1, shape=(2,)),
-            'vectorized_goal': Box(low=0, high=1, shape=(2,)),
-        })
+        self.observation_space = Dict(
+            {
+                "task_obs": Box(low=0, high=1, shape=(2,)),
+                "vectorized_goal": Box(low=0, high=1, shape=(2,)),
+            }
+        )
 
-        self.debug = True
+        self.debug = debug
         self.rng = np.random.default_rng()
 
     def observe(self):
@@ -37,10 +41,10 @@ class DebuggingEnv(gym.Env):
 
     def reset(self):
         # Sample objects on left and right
-        self.object_position = self.rng.choice(len(Category), 2, replace=False) #type: ignore
+        self.object_position = self.rng.choice(len(Category), 2, replace=False)  # type: ignore
 
         # Choose left or right as goal
-        target_choice = self.rng.choice(self.object_position) #type: ignore
+        target_choice = self.rng.choice(self.object_position)  # type: ignore
 
         self.target_obj_category = self.object_position[target_choice]
         return self.observe()
@@ -59,12 +63,14 @@ class DebuggingEnv(gym.Env):
             print("Episode:")
             print("-" * 30)
             print(f"Goal: {Category(self.target_obj_category)}")
-            print(f"State: Left: {Category(self.object_position[0])}, Right: {Category(self.object_position[1])}")
+            print(
+                f"State: Left: {Category(self.object_position[0])}, Right: {Category(self.object_position[1])}"
+            )
             print(f"Action: {Choice(action)}")
             print(f"Reward: {reward}")
             print("-" * 30)
 
-        return(obs, reward, True, {})
+        return (obs, reward, True, {})
 
 def env_creator(_):
     return DebuggingEnv() 

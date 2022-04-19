@@ -1,4 +1,4 @@
-name: bandits_ray
+name: bandits-ray
 channels:
   - pytorch
   - conda-forge
@@ -126,4 +126,4 @@ dependencies:
     - tifffile==2022.4.8
     - virtualenv==20.14.1
     - zipp==3.8.0
-prefix: /home/michael/.local/mambaforge/envs/bandits_ray
+prefix: /home/michael/.local/mambaforge/envs/bandits-ray

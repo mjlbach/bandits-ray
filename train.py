@@ -1,11 +1,9 @@
-import re
 from pathlib import Path
 
 import numpy as np
 from ray.rllib.agents import ppo
 from ray.tune.logger import UnifiedLogger
 from ray.tune.registry import register_env
-import os
 from ray.rllib.models.catalog import ModelCatalog
 
 import numpy as np
@@ -20,12 +18,9 @@ def main(args):
     n_steps = 160
     num_envs = 8
 
-    experiment_save_path = os.path.expanduser("~/ray_results")
-    experiment_name = args.name
     training_timesteps = 5e8
     save_freq = 1e6
 
-    checkpoint_path = Path(experiment_save_path, experiment_name)
     num_epochs = np.round(training_timesteps / n_steps).astype(int)
     save_ep_freq = np.round(
         num_epochs / (training_timesteps / save_freq)
@@ -43,7 +38,7 @@ def main(args):
         "framework": "torch",
         "seed": 0,
         "lambda": 0.9,
-        "lr": 1e-4,
+        "lr": 1e-5,
         "train_batch_size": n_steps,
         "rollout_fragment_length":  n_steps // num_envs,
         "num_sgd_iter": 30,
@@ -56,30 +51,27 @@ def main(args):
         # "_disable_preprocessor_api": False,
     }
 
-    log_path = str(checkpoint_path.joinpath("log"))
-    print(f"Saving to {log_path}")
+    experiment_save_path = "experiments"
+    experiment_name = args.name
+
+    experiment_path = Path(experiment_save_path, experiment_name)
+    checkpoint_path = experiment_path.joinpath("checkpoints")
+    log_path = experiment_path.joinpath("log")
+    Path(checkpoint_path).mkdir(parents=True, exist_ok=True)
     Path(log_path).mkdir(parents=True, exist_ok=True)
+
+    print(f"Saving to {checkpoint_path}")
+
     trainer = ppo.PPOTrainer(
         config,
         logger_creator=lambda x: UnifiedLogger(x, log_path), #type: ignore
     )
 
-    if Path(checkpoint_path).exists():
-        checkpoints = Path(checkpoint_path).rglob("checkpoint-*")
-        checkpoints = [
-            str(f) for f in checkpoints if re.search(r".*checkpoint-\d*$", str(f))
-        ]
-        checkpoints = sorted(checkpoints)
-        if len(checkpoints) > 0:
-            trainer.restore(checkpoints[-1])
-
     for i in range(num_epochs):
-        # Perform one iteration of training the policy with PPO
         trainer.train()
-
         if (i % save_ep_freq) == 0:
             checkpoint = trainer.save(checkpoint_path)
-            print("checkpoint saved at", checkpoint)
+            print("Checkpoint saved at", checkpoint)
 
 
 if __name__ == "__main__":
