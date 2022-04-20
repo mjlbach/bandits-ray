@@ -75,42 +75,40 @@ class ComplexInputNetwork(TorchModelV2, nn.Module):
         for key, component in self.original_space.spaces.items():
             # Image space.
             if key == "scene_graph":
-                pass
-                # name = "gnn_{}".format(key)
-                # graph_architecture = self.model_config.get("graph_model", "SAM")
-                # if graph_architecture == "GMA":
-                #     GraphModel = GMA
-                # elif graph_architecture == "SAM":
-                #     GraphModel = SAM
-                # elif graph_architecture == "SAMR":
-                #     GraphModel = SAMR
-                # elif graph_architecture == "SAG":
-                #     GraphModel = SAG
-                # elif graph_architecture == "GCN":
-                #     GraphModel = GCN
-                # else:
-                #     raise Exception("Unsupported graph architecture")
-                # self.feature_extractors["scene_graph"] = GraphModel(
-                #     in_features=component["nodes"].child_space.shape[0]
-                # )
-                # # THIS IS CRITICAL DO NOT FORGET THIS
-                # self.add_module(name, self.feature_extractors[key])
+                name = "gnn_{}".format(key)
+                graph_architecture = self.model_config.get("graph_model", "SAM")
+                if graph_architecture == "GMA":
+                    GraphModel = GMA
+                elif graph_architecture == "SAM":
+                    GraphModel = SAM
+                elif graph_architecture == "SAMR":
+                    GraphModel = SAMR
+                elif graph_architecture == "SAG":
+                    GraphModel = SAG
+                elif graph_architecture == "GCN":
+                    GraphModel = GCN
+                else:
+                    raise Exception("Unsupported graph architecture")
+                self.feature_extractors["scene_graph"] = GraphModel(
+                    in_features=component["nodes"].child_space.shape[0]
+                )
+                # THIS IS CRITICAL DO NOT FORGET THIS
+                self.add_module(name, self.feature_extractors[key])
                 concat_size += self.feature_extractors["scene_graph"].out_features #type: ignore
             elif key == "object_set":
-                pass
-                # name = "transformer_{}".format(key)
-                # self.feature_extractors["object_set"] = TransformerModel(
-                #     num_features=component.child_space.shape[0],
-                #     ntoken=128,
-                #     d_model=256,
-                #     d_hid=200,
-                #     nhead=8,
-                #     dropout=0.2,
-                #     nlayers=2,
-                # )
-                # # THIS IS CRITICAL DO NOT FORGET THIS
-                # self.add_module(name, self.feature_extractors[key])
-                # concat_size += self.feature_extractors["object_set"].out_features
+                name = "transformer_{}".format(key)
+                self.feature_extractors["object_set"] = TransformerModel(
+                    num_features=component.child_space.shape[0],
+                    ntoken=128,
+                    d_model=256,
+                    d_hid=200,
+                    nhead=8,
+                    dropout=0.2,
+                    nlayers=2,
+                )
+                # THIS IS CRITICAL DO NOT FORGET THIS
+                self.add_module(name, self.feature_extractors[key])
+                concat_size += self.feature_extractors["object_set"].out_features
             elif len(component.shape) == 3:
                 name = "cnn_{}".format(key)
                 config = {
@@ -180,7 +178,7 @@ class ComplexInputNetwork(TorchModelV2, nn.Module):
 
         # Optional post-concat FC-stack.
         post_fc_stack_config = {
-            "fcnet_hiddens": model_config.get("post_fcnet_hiddens", []),
+            "fcnet_hiddens": model_config.get("post_fcnet_hiddens", [ 128, 128, 128]),
             "fcnet_activation": model_config.get("post_fcnet_activation", "relu"),
         }
         self.post_fc_stack = ModelCatalog.get_model_v2(
