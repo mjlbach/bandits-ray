@@ -71,6 +71,7 @@ class ComplexInputNetwork(TorchModelV2, nn.Module):
                 framework="torch",
                 name="flatten_{}".format(key),
             )
+            self.add_module("flatten_{}".format(key), self.feature_extractors[key])
             self.flatten_dims[key] = size
             concat_size += self.feature_extractors[key].num_outputs
 
