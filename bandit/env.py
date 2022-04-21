@@ -56,7 +56,7 @@ class DebuggingEnv(gym.Env):
                 (self.resolution[0] / 2, self.resolution[1] / 4), dtype=np.uint16
             )
             right_start = np.array(
-                (self.resolution[0] // 2, self.resolution[1] - self.resolution[1] // 4),
+                (self.resolution[0] / 2, self.resolution[1] - self.resolution[1] / 4),
                 dtype=np.uint16,
             )
 
@@ -67,10 +67,14 @@ class DebuggingEnv(gym.Env):
                     rr, cc = disk(center, 10, shape=img.shape)
                     img[rr, cc, :] = np.array([255, 0, 0], dtype=np.uint8)
                 elif Category(element) is Category.square:
-                    extent = (30, 30)
+                    extent = np.array([30, 30])
+                    center = center - (extent/2)
+                    center = center.astype(np.uint16)
                     rr, cc = rectangle(center, extent=extent, shape=img.shape)
                     img[rr, cc, :] = np.array([255, 0, 0], dtype=np.uint8)
             obs["rgb"] = img
+            plt.imshow(img)
+            plt.show()
 
         return obs
 
