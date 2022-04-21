@@ -16,6 +16,7 @@ from ray.rllib.utils.torch_utils import one_hot
 
 import torch
 from torch import nn
+
 # import torch_geometric as pyg
 from gym.spaces import Box, Discrete, MultiDiscrete
 
@@ -26,6 +27,7 @@ from gym.spaces import Box, Discrete, MultiDiscrete
 # from ssg.policies.soft_attention_raw import SAMR
 # from ssg.policies.transformer import TransformerModel
 #
+
 
 class ComplexInputNetwork(TorchModelV2, nn.Module):
     """TorchModelV2 concat'ing CNN outputs to flat input(s), followed by FC(s).
@@ -94,7 +96,7 @@ class ComplexInputNetwork(TorchModelV2, nn.Module):
                 )
                 # THIS IS CRITICAL DO NOT FORGET THIS
                 self.add_module(name, self.feature_extractors[key])
-                concat_size += self.feature_extractors["scene_graph"].out_features #type: ignore
+                concat_size += self.feature_extractors["scene_graph"].out_features  # type: ignore
             elif key == "object_set":
                 name = "transformer_{}".format(key)
                 self.feature_extractors["object_set"] = TransformerModel(
@@ -156,7 +158,7 @@ class ComplexInputNetwork(TorchModelV2, nn.Module):
                 concat_size += self.feature_extractors[key].num_outputs
             # Everything else (1D Box).
             else:
-                name="flat_{}".format(key)
+                name = "flat_{}".format(key)
                 size = int(np.product(component.shape))
                 config = {
                     "fcnet_hiddens": model_config["fcnet_hiddens"],
@@ -169,7 +171,7 @@ class ComplexInputNetwork(TorchModelV2, nn.Module):
                     num_outputs=None,
                     model_config=config,
                     framework="torch",
-                    name="flatten_{}".format(key)
+                    name="flatten_{}".format(key),
                 )
                 # THIS IS CRITICAL DO NOT FORGET THIS
                 self.add_module(name, self.feature_extractors[key])
@@ -178,7 +180,7 @@ class ComplexInputNetwork(TorchModelV2, nn.Module):
 
         # Optional post-concat FC-stack.
         post_fc_stack_config = {
-            "fcnet_hiddens": model_config.get("post_fcnet_hiddens", [ 128, 128, 128]),
+            "fcnet_hiddens": model_config.get("post_fcnet_hiddens", [128, 128, 128]),
             "fcnet_activation": model_config.get("post_fcnet_activation", "relu"),
         }
         self.post_fc_stack = ModelCatalog.get_model_v2(

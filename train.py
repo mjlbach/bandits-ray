@@ -12,6 +12,7 @@ from bandit.env import env_creator
 
 ModelCatalog.register_custom_model("graph_extractor", ComplexInputNetwork)
 
+
 def main(args):
     register_env("env_creator", env_creator)
 
@@ -22,19 +23,17 @@ def main(args):
     save_freq = 1e6
 
     num_epochs = np.round(training_timesteps / n_steps).astype(int)
-    save_ep_freq = np.round(
-        num_epochs / (training_timesteps / save_freq)
-    ).astype(int)
+    save_ep_freq = np.round(num_epochs / (training_timesteps / save_freq)).astype(int)
 
     config = {
         "env": "env_creator",
         "model": {
-          "custom_model": "graph_extractor", # THIS LINE IS THE BROKEN ONE
-          "post_fcnet_hiddens": [128, 128, 128],
-          # "fcnet_hiddens": [128, 128, 128],
-          "conv_filters": [[16, [4, 4], 4], [32, [4, 4], 4], [256, [8, 8], 2]]
+            "custom_model": "graph_extractor",  # THIS LINE IS THE BROKEN ONE
+            "post_fcnet_hiddens": [128, 128, 128],
+            # "fcnet_hiddens": [128, 128, 128],
+            "conv_filters": [[16, [4, 4], 4], [32, [4, 4], 4], [256, [8, 8], 2]],
         },
-        "num_workers":num_envs,
+        "num_workers": num_envs,
         "framework": "torch",
         "seed": 0,
         # "lambda": 0.9,
@@ -64,7 +63,7 @@ def main(args):
 
     trainer = ppo.PPOTrainer(
         config,
-        logger_creator=lambda x: UnifiedLogger(x, log_path), #type: ignore
+        logger_creator=lambda x: UnifiedLogger(x, log_path),  # type: ignore
     )
 
     for i in range(num_epochs):
@@ -76,6 +75,7 @@ def main(args):
 
 if __name__ == "__main__":
     import argparse
+
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--name",

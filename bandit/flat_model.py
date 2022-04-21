@@ -15,6 +15,7 @@ import torch
 from torch import nn
 from gym.spaces import Box
 
+
 class ComplexInputNetworkFlat(TorchModelV2, nn.Module):
     """TorchModelV2 concat'ing CNN outputs to flat input(s), followed by FC(s).
 
@@ -52,7 +53,6 @@ class ComplexInputNetworkFlat(TorchModelV2, nn.Module):
             if model_config.get("_disable_preprocessor_api")
             else obs_space
         )
-
 
         # Image space.
         size = int(np.product(self.processed_obs_space.shape))
@@ -117,7 +117,7 @@ class ComplexInputNetworkFlat(TorchModelV2, nn.Module):
             SampleBatch(
                 {
                     SampleBatch.OBS: torch.reshape(
-                        input_dict['obs_flat'], [-1, self.flatten_dims]
+                        input_dict["obs_flat"], [-1, self.flatten_dims]
                     )
                 }
             )
@@ -133,4 +133,3 @@ class ComplexInputNetworkFlat(TorchModelV2, nn.Module):
     @override(ModelV2)
     def value_function(self):
         return self._value_out
-

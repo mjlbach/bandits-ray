@@ -13,6 +13,7 @@ from bandit.env import env_creator
 
 ModelCatalog.register_custom_model("graph_extractor", ComplexInputNetwork)
 
+
 def main(args):
     # instantiate env class
     register_env("env_creator", env_creator)
@@ -23,9 +24,9 @@ def main(args):
     config = {
         "env": "env_creator",
         "model": {
-          "custom_model": "graph_extractor",
-          "post_fcnet_hiddens": [256, 256, 256],
-          "conv_filters": [[16, [4, 4], 4], [32, [4, 4], 4], [256, [8, 8], 2]]
+            "custom_model": "graph_extractor",
+            "post_fcnet_hiddens": [256, 256, 256],
+            "conv_filters": [[16, [4, 4], 4], [32, [4, 4], 4], [256, [8, 8], 2]],
         },
         "num_workers": 0,
         "framework": "torch",
@@ -33,7 +34,7 @@ def main(args):
         "lambda": 0.9,
         "lr": 1e-4,
         "train_batch_size": n_steps,
-        "rollout_fragment_length":  n_steps // num_envs,
+        "rollout_fragment_length": n_steps // num_envs,
         "num_sgd_iter": 30,
         "sgd_minibatch_size": 128,
         "gamma": 0.5,
@@ -55,7 +56,7 @@ def main(args):
 
     agent = ppo.PPOTrainer(
         config,
-        logger_creator=lambda x: UnifiedLogger(x, log_path), #type: ignore
+        logger_creator=lambda x: UnifiedLogger(x, log_path),  # type: ignore
     )
 
     if Path(checkpoint_path).exists():
@@ -70,7 +71,7 @@ def main(args):
         print("Warning! No checkpoint detected")
         quit()
 
-    env = env_creator('test')
+    env = env_creator("test")
     state = env.reset()
     trials = 0
     successes = 0
@@ -100,6 +101,7 @@ def main(args):
 
 if __name__ == "__main__":
     import argparse
+
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--name",
