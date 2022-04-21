@@ -63,6 +63,10 @@ class DebuggingEnv(gym.Env):
             img = np.zeros(self.resolution, dtype=np.uint8)
 
             for element, center in zip(self.object_position, (left_start, right_start)):
+                center = center + self.rng.integers(
+                    low=(-self.resolution[0] // 4, -self.resolution[1] // 6),
+                    high=(self.resolution[0] // 4, self.resolution[1] // 6),
+                )
                 if Category(element) is Category.circle:
                     rr, cc = disk(center, 10, shape=img.shape)
                     img[rr, cc, :] = np.array([255, 0, 0], dtype=np.uint8)
@@ -70,11 +74,12 @@ class DebuggingEnv(gym.Env):
                     extent = np.array([30, 30])
                     center = center - (extent/2)
                     center = center.astype(np.uint16)
+
                     rr, cc = rectangle(center, extent=extent, shape=img.shape)
                     img[rr, cc, :] = np.array([255, 0, 0], dtype=np.uint8)
             obs["rgb"] = img
-            plt.imshow(img)
-            plt.show()
+            # plt.imshow(img)
+            # plt.show()
 
         return obs
 
