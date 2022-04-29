@@ -5,6 +5,7 @@ from gym.spaces import Discrete, Box, Dict
 from skimage.draw import disk, rectangle
 from IPython import embed
 import matplotlib.pyplot as plt
+from gym.envs.registration import EnvSpec
 
 
 class Choice(Enum):
@@ -39,6 +40,7 @@ class DebuggingEnv(gym.Env):
 
         self.debug = debug
         self.rng = np.random.default_rng()
+        self.spec = EnvSpec("debugging_env-v1")
 
     def observe(self):
         obs = dict()
