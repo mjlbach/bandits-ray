@@ -154,10 +154,12 @@ class RelationalEnv(gym.Env):
             self.scene_graph = Graph(
                 self,
                 edge_groups={
-                    "edges": [
+                    "below": [
                         Edge.below,
-                        Edge.above,
                     ],
+                    "above": [
+                        Edge.above,
+                    ]
                 },
             )
             obs_dict["scene_graph"] = gym.spaces.Dict(
@@ -287,3 +289,21 @@ def env_creator(_):
 if __name__ == "__main__":
     env = env_creator("")
     obs = env.reset()
+    import torch
+    from torch_geometric.data import HeteroData, Batch
+    from bandit.models.hetero.gnn import HGNN
+
+    # data = Data(x=torch.tensor(obs['scene_graph']['nodes'], dtype=torch.float), edge_index=torch.tensor(obs['scene_graph']['edges'], dtype=torch.long))
+    data = HeteroData()
+    for key in obs["scene_graph"]:
+        if key == 'nodes':
+            data['node'].x = torch.tensor(obs['scene_graph']['nodes'], dtype=torch.float)
+        else:
+            data['node', key, 'node'].edge_index = torch.tensor(obs['scene_graph'][key], dtype=torch.long).T
+    batch = Batch.from_data_list([data])
+
+    with torch.no_grad():
+        model = HGNN(in_features=data['node'].x.shape[1], metadata=data.metadata())
+        out = model(batch)
+
+    out = model(batch)
