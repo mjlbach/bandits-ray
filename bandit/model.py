@@ -14,12 +14,16 @@ from ray.rllib.utils.annotations import override
 from ray.rllib.utils.spaces.space_utils import flatten_space
 from ray.rllib.utils.torch_utils import one_hot
 
+from torch_geometric.data import HeteroData, Batch
+
 import torch
 from torch import nn
 
-# import torch_geometric as pyg
+import torch_geometric as pyg
+
 from gym.spaces import Box, Discrete, MultiDiscrete
 
+from bandit.models.hetero.gnn import HGNN
 # from ssg.policies.gcn import GCN
 # from ssg.policies.graph_multiset_attention import GMA
 # from ssg.policies.sagpool import SAG
@@ -78,24 +82,21 @@ class ComplexInputNetwork(TorchModelV2, nn.Module):
             # Image space.
             if key == "scene_graph":
                 name = "gnn_{}".format(key)
-                graph_architecture = self.model_config.get("graph_model", "SAM")
-                if graph_architecture == "GMA":
-                    GraphModel = GMA
-                elif graph_architecture == "SAM":
-                    GraphModel = SAM
-                elif graph_architecture == "SAMR":
-                    GraphModel = SAMR
-                elif graph_architecture == "SAG":
-                    GraphModel = SAG
-                elif graph_architecture == "GCN":
-                    GraphModel = GCN
-                else:
-                    raise Exception("Unsupported graph architecture")
+                # graph_architecture = self.model_config.get("graph_model", "SAM")
+                node_metadata = ["node"]
+                edge_metadata = []
+
+                for key in component:
+                    if key not in ["node", "nodes"]:
+                        edge_metadata.append(['node', key, 'node'])
+                GraphModel = HGNN
+
                 self.feature_extractors["scene_graph"] = GraphModel(
-                    in_features=component["nodes"].child_space.shape[0]
+                    in_features=component["nodes"].child_space.shape[0],
+                    metadata=(node_metadata, edge_metadata)
                 )
                 # THIS IS CRITICAL DO NOT FORGET THIS
-                self.add_module(name, self.feature_extractors[key])
+                self.add_module(name, self.feature_extractors['scene_graph'])
                 concat_size += self.feature_extractors["scene_graph"].out_features  # type: ignore
             elif key == "object_set":
                 name = "transformer_{}".format(key)
@@ -250,26 +251,29 @@ class ComplexInputNetwork(TorchModelV2, nn.Module):
                 one_hot_out, _ = self.feature_extractors[key](SampleBatch(one_hot_in))
                 outs.append(one_hot_out)
             elif key in ["scene_graph"]:
-                breakpoint()
-                edges = input_dict["obs"]["scene_graph"]["edges"]
                 nodes = input_dict["obs"]["scene_graph"]["nodes"]
+                graphs = []
                 for _ in nodes.lengths:
                     # TODO (mjlbach): This basically ensures there is at least a single node per graph, otherwise we cannot guarantee there is an input to the output MLP. Should we instead pad with sentinel values?
                     node_length = max(int(nodes.lengths[idx]), 1)
-                    graph_edges = edges.values[idx][
-                        : edges.lengths[idx].type(torch.int32)
-                    ].type(torch.int64)
-                    graph_nodes = nodes.values[idx][:node_length]
-                    graph = pyg.data.Data(x=graph_nodes, edge_index=graph_edges.T)
-                    graphs.append(graph)
-                    idx += 1
+                    data = HeteroData()
+                    data['node'].x = nodes.values[idx][:node_length]
+                    for key in value:
+                        if key == 'nodes':
+                            continue
+                        else:
+                            data['node', key, 'node'].edge_index = value[key].values[idx].T.long()
+                    graphs.append(data)
+
                 batch = pyg.data.Batch.from_data_list(graphs)
+                idx += 1
+                
                 if nodes.values.device.type == "cpu":
                     batch.cpu()
                 else:
                     batch.cuda()
 
-                outs.append(self.feature_extractors[key](batch))
+                outs.append(self.feature_extractors['scene_graph'](batch))
             elif key in ["object_set"]:
                 val = SampleBatch({SampleBatch.OBS: value})
                 val = val["obs"]
