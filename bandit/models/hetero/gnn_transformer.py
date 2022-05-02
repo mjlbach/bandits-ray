@@ -1,8 +1,9 @@
 import torch
 from torch_geometric.nn import HGTConv
-from torch_geometric.nn import global_mean_pool
 
 from torch_geometric.nn import MLP
+import torch_geometric as pyg
+import math
 
 from torch import Tensor, nn
 from torch.nn import TransformerEncoder, TransformerEncoderLayer
@@ -116,13 +117,13 @@ class HGNN(torch.nn.Module):
         x_dict = {key: x.relu() for key, x in x_dict.items()}
         x_dict = self.conv3(x_dict, edge_index_dict)
         x_dict = {key: x.relu() for key, x in x_dict.items()}
-        return x_dict['node']
+        return x_dict['node'] # batch * node, features
 
 class GraphTransformer(torch.nn.Module):
     def __init__(self, in_features, metadata):
         super().__init__()
 
-        self.gnn = HGNN(in_features, metadata=metadata)
+        self.gnn = HGNN(in_features, out_features=128, metadata=metadata)
         self.transformer = Transformer(
             num_features=self.gnn.out_features,
             ntoken=128,
@@ -136,6 +137,7 @@ class GraphTransformer(torch.nn.Module):
 
     def forward(self, data, lengths):
         x = self.gnn(data)
+        x, _ = pyg.utils.to_dense_batch(x, data.to_homogeneous().batch, max_num_nodes=50)
         return self.transformer(x, lengths)
 
 def get_fake_data(size):
