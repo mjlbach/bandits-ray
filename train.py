@@ -8,7 +8,7 @@ from ray.rllib.models.catalog import ModelCatalog
 
 import numpy as np
 from bandit.model import ComplexInputNetwork
-from bandit.env import env_creator
+from bandit.relational_env import env_creator
 
 ModelCatalog.register_custom_model("graph_extractor", ComplexInputNetwork)
 

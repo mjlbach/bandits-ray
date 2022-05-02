@@ -162,20 +162,22 @@ class RelationalEnv(gym.Env):
                     ]
                 },
             )
-            obs_dict["scene_graph"] = gym.spaces.Dict(
-                {
+            observation_dict = {
                     "nodes": Repeated(
                         Box(
-                            low=-np.inf, high=np.inf, shape=(self.scene_graph.node_dim,)
+                            low=-np.inf, high=np.inf, shape=(self.scene_graph.node_dim,), dtype=np.float32
                         ),
                         max_len=10,
                     ),
-                    "edges": Repeated(
-                        Box(low=0, high=1000, shape=(2,), dtype=np.int64),
-                        max_len=10,
-                    ),
-                }
-            )
+            }
+
+            for edge_type in self.scene_graph.edge_groups:
+                observation_dict[edge_type] = Repeated(
+                    Box(low=0, high=1000, shape=(2,), dtype=np.int64),
+                    max_len=10,
+                )
+
+            obs_dict["scene_graph"] = gym.spaces.Dict(observation_dict)
 
         self.left_plane_center = np.array(
             (self.resolution[0] / 2, self.resolution[1] / 4), 
@@ -289,6 +291,8 @@ def env_creator(_):
 if __name__ == "__main__":
     env = env_creator("")
     obs = env.reset()
+    breakpoint()
+    env.observation_space.contains(obs)
     import torch
     from torch_geometric.data import HeteroData, Batch
     from bandit.models.hetero.gnn import HGNN

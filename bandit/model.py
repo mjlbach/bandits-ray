@@ -250,6 +250,7 @@ class ComplexInputNetwork(TorchModelV2, nn.Module):
                 one_hot_out, _ = self.feature_extractors[key](SampleBatch(one_hot_in))
                 outs.append(one_hot_out)
             elif key in ["scene_graph"]:
+                breakpoint()
                 edges = input_dict["obs"]["scene_graph"]["edges"]
                 nodes = input_dict["obs"]["scene_graph"]["nodes"]
                 for _ in nodes.lengths:
