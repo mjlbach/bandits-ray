@@ -14,7 +14,7 @@ from ray.rllib.utils.annotations import override
 from ray.rllib.utils.spaces.space_utils import flatten_space
 from ray.rllib.utils.torch_utils import one_hot
 
-from torch_geometric.data import HeteroData, Batch
+from torch_geometric.data import HeteroData
 
 import torch
 from torch import nn
@@ -24,6 +24,7 @@ import torch_geometric as pyg
 from gym.spaces import Box, Discrete, MultiDiscrete
 
 from bandit.models.hetero.gnn import HGNN
+from bandit.models.hetero.gnn_transformer import GraphTransformer
 # from ssg.policies.gcn import GCN
 # from ssg.policies.graph_multiset_attention import GMA
 # from ssg.policies.sagpool import SAG
@@ -89,7 +90,7 @@ class ComplexInputNetwork(TorchModelV2, nn.Module):
                 for key in component:
                     if key not in ["node", "nodes"]:
                         edge_metadata.append(['node', key, 'node'])
-                GraphModel = HGNN
+                GraphModel = GraphTransformer
 
                 self.feature_extractors["scene_graph"] = GraphModel(
                     in_features=component["nodes"].child_space.shape[0],
@@ -273,7 +274,7 @@ class ComplexInputNetwork(TorchModelV2, nn.Module):
                 else:
                     batch.cuda()
 
-                outs.append(self.feature_extractors['scene_graph'](batch))
+                outs.append(self.feature_extractors['scene_graph'](batch, nodes.lengths))
             elif key in ["object_set"]:
                 val = SampleBatch({SampleBatch.OBS: value})
                 val = val["obs"]

@@ -139,10 +139,11 @@ class GraphTransformer(torch.nn.Module):
             dropout=0.2,
             nlayers=2,
         )
+        self.out_features = self.transformer.out_features
 
-    def forward(self, data):
+    def forward(self, data, lengths):
         x = self.gnn(data)
-        return self.transformer(x)
+        return self.transformer(x, lengths)
 
 def get_fake_data(size):
     from torch_geometric.data import HeteroData
