@@ -96,19 +96,24 @@ class HGNN(torch.nn.Module):
         self.in_features = in_features
         self.out_features = out_features
 
+        # Embedding network
+        self.mlp = MLP([in_features, 128, 128], batch_norm=False)
+
         # The scene graph encoding is a 3 layer deep graph convolution,
         # Equivalent to 3 MLP layers
-        self.conv1 = HGTConv(in_features, 128, metadata, num_heads)
+        self.conv1 = HGTConv(128, 128, metadata, num_heads)
         self.conv2 = HGTConv(128, 128, metadata, num_heads)
-        self.conv3 = HGTConv(128, 128, metadata, num_heads)
-
-        self.mlp = MLP([128, 128, out_features], batch_norm=False)
+        self.conv3 = HGTConv(128, out_features, metadata, num_heads)
 
     def forward(self, data):
         # Extract the features
         x_dict = data.x_dict
         edge_index_dict = data.edge_index_dict
         # batch = data.batch_dict
+
+        # Embed features
+        x_dict = {key: self.mlp(x) for key, x in x_dict.items()}
+        x_dict = {key: x.relu() for key, x in x_dict.items()}
 
         # First round of graph convolution
         x_dict = self.conv1(x_dict, edge_index_dict)
