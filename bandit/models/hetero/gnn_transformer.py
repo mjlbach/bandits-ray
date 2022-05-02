@@ -107,7 +107,7 @@ class HGNN(torch.nn.Module):
         # Extract the features
         x_dict = data.x_dict
         edge_index_dict = data.edge_index_dict
-        batch = data.batch_dict
+        # batch = data.batch_dict
 
         # First round of graph convolution
         x_dict = self.conv1(x_dict, edge_index_dict)
@@ -116,14 +116,7 @@ class HGNN(torch.nn.Module):
         x_dict = {key: x.relu() for key, x in x_dict.items()}
         x_dict = self.conv3(x_dict, edge_index_dict)
         x_dict = {key: x.relu() for key, x in x_dict.items()}
-
-        # Weight the node features by the node attention
-        x = global_mean_pool(x_dict['node'], batch['node'])
-
-        # Final encoding layers
-        x = self.mlp(x)
-
-        return x
+        return x_dict['node']
 
 class GraphTransformer(torch.nn.Module):
     def __init__(self, in_features, metadata):
@@ -168,7 +161,6 @@ def main():
     data_1 = get_fake_data(5)
     data_2 = get_fake_data(7)
     batch = Batch.from_data_list([data_1, data_2])
-    breakpoint()
 
     with torch.no_grad():
         model = GraphTransformer(in_features=8, metadata = (['node'], [('node', 'onTop', 'node')]))
