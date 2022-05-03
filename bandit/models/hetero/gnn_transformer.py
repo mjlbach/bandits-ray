@@ -68,11 +68,11 @@ class Transformer(nn.Module):
             output Tensor of shape [seq_len, batch_size, ntoken]
         """
 
-        # Make mask based on repeated sequence length, padding with 1 for CLS token (appended at start of sequence)
+        # Make mask based on repeated sequence length, padding with 1 for CLS token and 1 for the goal token (appended at start of sequence)
         # Mask == True means that the elements per each sequence will *not* be included in the attention mask
         mask = torch.arange(src.shape[1] + 1).repeat((src.shape[0], 1)).to(
             lengths.device
-        ) >= (lengths[:, None] + 1)
+        ) >= (lengths[:, None] + 1 + 1)
 
         # Append CLS token to start of sequence
         cls = torch.broadcast_to(
