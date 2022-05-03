@@ -140,9 +140,35 @@ class GraphTransformer(torch.nn.Module):
         )
         self.out_features = self.transformer.out_features
 
-    def forward(self, data, lengths):
+    def forward(self, data, lengths, goal=None):
         x = self.gnn(data)
         x, _ = pyg.utils.to_dense_batch(x, data.to_homogeneous().batch, max_num_nodes=50)
+        return self.transformer(x, lengths)
+
+class GoalEmbeddingGraphTransformer(torch.nn.Module):
+    def __init__(self, in_features, goal_features, metadata):
+        super().__init__()
+
+        # Embedding network
+        self.goal_embedding_mlp = MLP([goal_features, 128, 128], batch_norm=False)
+
+        self.gnn = HGNN(in_features, out_features=128, metadata=metadata)
+        self.transformer = Transformer(
+            num_features=self.gnn.out_features,
+            ntoken=128,
+            d_model=256,
+            d_hid=200,
+            nhead=8,
+            dropout=0.2,
+            nlayers=2,
+        )
+        self.out_features = self.transformer.out_features
+
+    def forward(self, data, lengths, goal):
+        x = self.gnn(data)
+        x, _ = pyg.utils.to_dense_batch(x, data.to_homogeneous().batch, max_num_nodes=50)
+        embedded_goal = self.goal_embedding_mlp(goal)
+        x = torch.cat([embedded_goal, x], dim=1)
         return self.transformer(x, lengths)
 
 def get_fake_data(size):

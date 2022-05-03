@@ -24,7 +24,7 @@ import torch_geometric as pyg
 from gym.spaces import Box, Discrete, MultiDiscrete
 
 from bandit.models.hetero.gnn import HGNN
-from bandit.models.hetero.gnn_transformer import GraphTransformer
+from bandit.models.hetero.gnn_transformer import GoalEmbeddingGraphTransformer
 # from ssg.policies.gcn import GCN
 # from ssg.policies.graph_multiset_attention import GMA
 # from ssg.policies.sagpool import SAG
@@ -81,7 +81,9 @@ class ComplexInputNetwork(TorchModelV2, nn.Module):
         concat_size = 0
         for key, component in self.original_space.spaces.items():
             # Image space.
-            if key == "scene_graph":
+            if key in "vectorized_goal":
+                pass
+            elif key == "scene_graph":
                 name = "gnn_{}".format(key)
                 # graph_architecture = self.model_config.get("graph_model", "SAM")
                 node_metadata = ["node"]
@@ -90,12 +92,14 @@ class ComplexInputNetwork(TorchModelV2, nn.Module):
                 for key in component:
                     if key not in ["node", "nodes"]:
                         edge_metadata.append(['node', key, 'node'])
-                GraphModel = GraphTransformer
+                GraphModel = GoalEmbeddingGraphTransformer
 
                 self.feature_extractors["scene_graph"] = GraphModel(
                     in_features=component["nodes"].child_space.shape[0],
+                    goal_features=self.original_space.spaces["vectorized_goal"],
                     metadata=(node_metadata, edge_metadata)
                 )
+
                 # THIS IS CRITICAL DO NOT FORGET THIS
                 self.add_module(name, self.feature_extractors['scene_graph'])
                 concat_size += self.feature_extractors["scene_graph"].out_features  # type: ignore
@@ -274,12 +278,14 @@ class ComplexInputNetwork(TorchModelV2, nn.Module):
                 else:
                     batch.cuda()
 
-                outs.append(self.feature_extractors['scene_graph'](batch, nodes.lengths))
+                outs.append(self.feature_extractors['scene_graph'](batch, nodes.lengths, orig_obs['vectorized_goal']))
             elif key in ["object_set"]:
                 val = SampleBatch({SampleBatch.OBS: value})
                 val = val["obs"]
                 out = self.feature_extractors[key](val.values, val.lengths)
                 outs.append(out)
+            elif key in ["vectorized_goal"]:
+                pass
             else:
                 nn_out, _ = self.feature_extractors[key](
                     SampleBatch(
