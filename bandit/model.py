@@ -96,7 +96,7 @@ class ComplexInputNetwork(TorchModelV2, nn.Module):
 
                 self.feature_extractors["scene_graph"] = GraphModel(
                     in_features=component["nodes"].child_space.shape[0],
-                    goal_features=self.original_space.spaces["vectorized_goal"],
+                    goal_features=self.original_space.spaces["vectorized_goal"].shape[0],
                     metadata=(node_metadata, edge_metadata)
                 )
 

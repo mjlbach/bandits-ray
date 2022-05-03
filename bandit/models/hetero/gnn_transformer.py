@@ -168,6 +168,7 @@ class GoalEmbeddingGraphTransformer(torch.nn.Module):
         x = self.gnn(data)
         x, _ = pyg.utils.to_dense_batch(x, data.to_homogeneous().batch, max_num_nodes=50)
         embedded_goal = self.goal_embedding_mlp(goal)
+        embedded_goal = embedded_goal.reshape(-1, 1, 128)
         x = torch.cat([embedded_goal, x], dim=1)
         return self.transformer(x, lengths)
 
