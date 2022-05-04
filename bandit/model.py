@@ -19,15 +19,7 @@ from torch import nn
 
 import torch_geometric as pyg
 from gym.spaces import Box, Discrete, MultiDiscrete
-from bandit.models.soft_attention import SAM
-
-# from ssg.policies.gcn import GCN
-# from ssg.policies.graph_multiset_attention import GMA
-# from ssg.policies.sagpool import SAG
-# from ssg.policies.soft_attention import SAM
-# from ssg.policies.soft_attention_raw import SAMR
-# from ssg.policies.transformer import TransformerModel
-#
+from bandit.models.soft_attention_gnn import SoftAttentionGNN
 
 
 class ComplexInputNetwork(TorchModelV2, nn.Module):
@@ -79,7 +71,7 @@ class ComplexInputNetwork(TorchModelV2, nn.Module):
             # Image space.
             if key == "scene_graph":
                 name = "gnn_{}".format(key)
-                self.feature_extractors["scene_graph"] = SAM(
+                self.feature_extractors["scene_graph"] = SoftAttentionGNN(
                     in_features=component["nodes"].child_space.shape[0]
                 )
                 # THIS IS CRITICAL DO NOT FORGET THIS
