@@ -44,7 +44,7 @@ def main(args):
         # "sgd_minibatch_size": 128,
         # "gamma": 0.99,
         # "create_env_on_driver": False,
-        # "num_gpus": 0,
+        "num_gpus": 1,
         # "callbacks": MetricsCallback,
         # "log_level": "DEBUG",
         # "_disable_preprocessor_api": False,
