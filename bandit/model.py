@@ -14,7 +14,7 @@ from ray.rllib.utils.annotations import override
 from ray.rllib.utils.spaces.space_utils import flatten_space
 from ray.rllib.utils.torch_utils import one_hot
 
-from torch_geometric.data import HeteroData, Batch
+from torch_geometric.data import HeteroData
 
 import torch
 from torch import nn
