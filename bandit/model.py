@@ -17,8 +17,9 @@ from ray.rllib.utils.torch_utils import one_hot
 import torch
 from torch import nn
 
-# import torch_geometric as pyg
+import torch_geometric as pyg
 from gym.spaces import Box, Discrete, MultiDiscrete
+from bandit.models.soft_attention import SAM
 
 # from ssg.policies.gcn import GCN
 # from ssg.policies.graph_multiset_attention import GMA
@@ -78,20 +79,7 @@ class ComplexInputNetwork(TorchModelV2, nn.Module):
             # Image space.
             if key == "scene_graph":
                 name = "gnn_{}".format(key)
-                graph_architecture = self.model_config.get("graph_model", "SAM")
-                if graph_architecture == "GMA":
-                    GraphModel = GMA
-                elif graph_architecture == "SAM":
-                    GraphModel = SAM
-                elif graph_architecture == "SAMR":
-                    GraphModel = SAMR
-                elif graph_architecture == "SAG":
-                    GraphModel = SAG
-                elif graph_architecture == "GCN":
-                    GraphModel = GCN
-                else:
-                    raise Exception("Unsupported graph architecture")
-                self.feature_extractors["scene_graph"] = GraphModel(
+                self.feature_extractors["scene_graph"] = SAM(
                     in_features=component["nodes"].child_space.shape[0]
                 )
                 # THIS IS CRITICAL DO NOT FORGET THIS
