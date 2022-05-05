@@ -21,6 +21,7 @@ class Category(Enum):
 class Edge(Enum):
     below = 0
     above = 1
+    inRoom = 2
 
 class Graph:
     def __init__(self, 
@@ -55,6 +56,7 @@ class Graph:
         category_mapping = {}
         category_mapping["plane"] = 0
         category_mapping["object"] = 1
+        category_mapping["room"] = 1
         return category_mapping
     
     def populate_graph(self):
@@ -70,6 +72,13 @@ class Graph:
             self.right_center_id,
             pos=self.env.right_plane_center,
             semantic_class=self.category_mapping["plane"],
+        )
+
+        self.room_node = self.get_node_id()
+        self.G.add_node(
+            self.room_node,
+            pos=self.env.right_plane_center,
+            semantic_class=self.category_mapping["room"],
         )
 
         # left object
@@ -97,6 +106,34 @@ class Graph:
             self.right_center_id,
             relation=Edge(self.env.object_position[1]),
         )
+        #
+        # # Add room edges
+        # self.G.add_edge(
+        #     self.right_center_id,
+        #     self.room_node,
+        #     relation=Edge.inRoom,
+        # )
+        #
+        # # Add room edges
+        # self.G.add_edge(
+        #     self.left_center_id,
+        #     self.room_node,
+        #     relation=Edge.inRoom,
+        # )
+        #
+        # # Add room edges
+        # self.G.add_edge(
+        #     self.left_object_id,
+        #     self.room_node,
+        #     relation=Edge.inRoom,
+        # )
+        #
+        # # Add room edges
+        # self.G.add_edge(
+        #     self.right_object_id,
+        #     self.room_node,
+        #     relation=Edge.inRoom,
+        # )
 
     def get_node_id(self):
         node_id_count = self.node_id_count
