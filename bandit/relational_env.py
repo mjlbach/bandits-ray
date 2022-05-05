@@ -25,7 +25,7 @@ class Edge(Enum):
 class Graph:
     def __init__(self, 
                  env, 
-                 features=["pos", "semantic_class"], 
+                 features=["semantic_class"], 
                  edge_groups={"below": [Edge.below], "above": [Edge.above]}):
         self.env = env
         self.edge_type_to_group = {}
