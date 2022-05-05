@@ -27,7 +27,7 @@ class Graph:
     def __init__(self, 
                  env, 
                  features=["semantic_class"], 
-                 edge_groups={"below": [Edge.below], "above": [Edge.above]}):
+                 edge_groups={"below": [Edge.below], "above": [Edge.above], 'inRoom': [Edge.inRoom]}):
         self.env = env
         self.edge_type_to_group = {}
         self.edge_groups = edge_groups
@@ -106,34 +106,34 @@ class Graph:
             self.right_center_id,
             relation=Edge(self.env.object_position[1]),
         )
-        #
-        # # Add room edges
-        # self.G.add_edge(
-        #     self.right_center_id,
-        #     self.room_node,
-        #     relation=Edge.inRoom,
-        # )
-        #
-        # # Add room edges
-        # self.G.add_edge(
-        #     self.left_center_id,
-        #     self.room_node,
-        #     relation=Edge.inRoom,
-        # )
-        #
-        # # Add room edges
-        # self.G.add_edge(
-        #     self.left_object_id,
-        #     self.room_node,
-        #     relation=Edge.inRoom,
-        # )
-        #
-        # # Add room edges
-        # self.G.add_edge(
-        #     self.right_object_id,
-        #     self.room_node,
-        #     relation=Edge.inRoom,
-        # )
+        
+        # Add room edges
+        self.G.add_edge(
+            self.right_center_id,
+            self.room_node,
+            relation=Edge.inRoom,
+        )
+        
+        # Add room edges
+        self.G.add_edge(
+            self.left_center_id,
+            self.room_node,
+            relation=Edge.inRoom,
+        )
+        
+        # Add room edges
+        self.G.add_edge(
+            self.left_object_id,
+            self.room_node,
+            relation=Edge.inRoom,
+        )
+        
+        # Add room edges
+        self.G.add_edge(
+            self.right_object_id,
+            self.room_node,
+            relation=Edge.inRoom,
+        )
 
     def get_node_id(self):
         node_id_count = self.node_id_count
@@ -196,6 +196,9 @@ class RelationalEnv(gym.Env):
                     ],
                     "above": [
                         Edge.above,
+                    ],
+                    "inRoom": [
+                        Edge.inRoom,
                     ]
                 },
             )
