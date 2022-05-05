@@ -265,9 +265,9 @@ class ComplexInputNetwork(TorchModelV2, nn.Module):
                         else:
                             data['node', key, 'node'].edge_index = value[key].values[idx].T.long()
                     graphs.append(data)
+                    idx += 1
 
                 batch = pyg.data.Batch.from_data_list(graphs)
-                idx += 1
                 
                 if nodes.values.device.type == "cpu":
                     batch.cpu()
