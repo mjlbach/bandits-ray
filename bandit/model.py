@@ -24,14 +24,6 @@ import torch_geometric as pyg
 from gym.spaces import Box, Discrete, MultiDiscrete
 
 from bandit.models.hetero.gnn import HGNN
-# from ssg.policies.gcn import GCN
-# from ssg.policies.graph_multiset_attention import GMA
-# from ssg.policies.sagpool import SAG
-# from ssg.policies.soft_attention import SAM
-# from ssg.policies.soft_attention_raw import SAMR
-# from ssg.policies.transformer import TransformerModel
-#
-
 
 class ComplexInputNetwork(TorchModelV2, nn.Module):
     """TorchModelV2 concat'ing CNN outputs to flat input(s), followed by FC(s).
