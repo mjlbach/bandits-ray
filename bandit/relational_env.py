@@ -56,7 +56,7 @@ class Graph:
         category_mapping = {}
         category_mapping["plane"] = 0
         category_mapping["object"] = 1
-        category_mapping["room"] = 1
+        category_mapping["room"] = 2
         return category_mapping
     
     def populate_graph(self):
