@@ -44,6 +44,7 @@ def main(args):
             #     "edges": [
             #         Edge.below,
             #         Edge.above,
+            #         Edge.inRoom,
             #     ],
             # }
             "edge_groups": {
