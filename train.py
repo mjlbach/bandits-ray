@@ -30,7 +30,7 @@ def main(args):
         "model": {
             "custom_model": "graph_extractor",  # THIS LINE IS THE BROKEN ONE
             "custom_model_config": {
-                "graph_model": "GNN",
+                "graph_model": "HGNN",
             },
             "post_fcnet_hiddens": [128, 128, 128],
             # "fcnet_hiddens": [128, 128, 128],
@@ -40,9 +40,17 @@ def main(args):
             "modalities": ["task_obs", "scene_graph"],
             "features": ["pos", "semantic_class"],
             "debug": False,
+            # "edge_groups": {
+            #     "edges": [
+            #         Edge.below,
+            #         Edge.above,
+            #     ],
+            # }
             "edge_groups": {
-                "edges": [
+                "below": [
                     Edge.below,
+                ],
+                "above": [
                     Edge.above,
                 ],
             }
@@ -51,7 +59,7 @@ def main(args):
         "framework": "torch",
         "seed": 0,
         # "lambda": 0.9,
-        # "lr": 1e-4,
+        "lr": 1e-4,
         # "train_batch_size": n_steps,
         # "rollout_fragment_length":  n_steps // num_envs,
         # "num_sgd_iter": 30,
