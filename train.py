@@ -8,7 +8,7 @@ from ray.rllib.models.catalog import ModelCatalog
 
 import numpy as np
 from bandit.model import ComplexInputNetwork
-from bandit.relational_env import env_creator
+from bandit.relational_env import env_creator, Edge
 
 ModelCatalog.register_custom_model("graph_extractor", ComplexInputNetwork)
 
@@ -35,6 +35,17 @@ def main(args):
             "post_fcnet_hiddens": [128, 128, 128],
             # "fcnet_hiddens": [128, 128, 128],
             "conv_filters": [[16, [4, 4], 4], [32, [4, 4], 4], [256, [8, 8], 2]],
+        },
+        "env_config": {
+            "modalities": ["task_obs", "scene_graph"],
+            "features": ["pos", "semantic_class"],
+            "debug": False,
+            "edge_groups": {
+                "edges": [
+                    Edge.below,
+                    Edge.above,
+                ],
+            }
         },
         "num_workers": num_envs,
         "framework": "torch",

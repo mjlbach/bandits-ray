@@ -133,10 +133,10 @@ class Graph:
 
 
 class RelationalEnv(gym.Env):
-    def __init__(self, debug=False, modalities=["task_obs", "scene_graph"]):
+    def __init__(self, env_config):
         super().__init__()
 
-        self.modalities = modalities
+        self.modalities = env_config["modalities"]
         self.action_space = Discrete(2)
         self.resolution = (128, 128, 3)
         obs_dict = {
@@ -153,27 +153,25 @@ class RelationalEnv(gym.Env):
         if "scene_graph" in self.modalities:
             self.scene_graph = Graph(
                 self,
-                edge_groups={
-                    "edges": [
-                        Edge.below,
-                        Edge.above,
-                    ],
-                },
+                edge_groups = env_config["edge_groups"],
+                features = env_config["features"],
             )
-            obs_dict["scene_graph"] = gym.spaces.Dict(
-                {
+            observation_dict = {
                     "nodes": Repeated(
                         Box(
-                            low=-np.inf, high=np.inf, shape=(self.scene_graph.node_dim,)
+                            low=-np.inf, high=np.inf, shape=(self.scene_graph.node_dim,), dtype=np.float32
                         ),
-                        max_len=10,
+                        max_len=150,
                     ),
-                    "edges": Repeated(
-                        Box(low=0, high=1000, shape=(2,), dtype=np.int64),
-                        max_len=10,
-                    ),
-                }
-            )
+            }
+
+            for edge_type in self.scene_graph.edge_groups:
+                observation_dict[edge_type] = Repeated(
+                    Box(low=0, high=1000, shape=(2,), dtype=np.int64),
+                    max_len=300,
+                )
+
+            obs_dict["scene_graph"] = gym.spaces.Dict(observation_dict)
 
         self.left_plane_center = np.array(
             (self.resolution[0] / 2, self.resolution[1] / 4), 
@@ -189,7 +187,7 @@ class RelationalEnv(gym.Env):
 
         self.observation_space = Dict(obs_dict)
 
-        self.debug = debug
+        self.debug = env_config.get("debug", False)
         self.rng = np.random.default_rng()
 
     def observe(self):
@@ -280,8 +278,8 @@ class RelationalEnv(gym.Env):
         return (obs, reward, True, {})
 
 
-def env_creator(_):
-    return RelationalEnv()
+def env_creator(env_config):
+    return RelationalEnv(env_config)
 
 
 if __name__ == "__main__":
