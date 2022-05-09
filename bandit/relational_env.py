@@ -21,12 +21,15 @@ class Category(Enum):
 class Edge(Enum):
     below = 0
     above = 1
+    inRoom = 2
 
 class Graph:
     def __init__(self, 
                  env, 
                  features=["pos", "semantic_class"], 
-                 edge_groups={"below": [Edge.below], "above": [Edge.above]}):
+                 edge_groups={"below": [Edge.below], 
+                              "above": [Edge.above],
+                              "inRoom": [Edge.inRoom]}):
         self.env = env
         self.edge_type_to_group = {}
         self.edge_groups = edge_groups
@@ -53,8 +56,11 @@ class Graph:
         
     def consolidate_mapping(self):
         category_mapping = {}
-        category_mapping["plane"] = 0
-        category_mapping["object"] = 1
+        category_mapping["room"] = 0
+        category_mapping["plane"] = 1
+        category_mapping["object"] = 2
+        for i in range(self.env.num_dummy_types):
+            category_mapping["dummy%d"%i] = i + 3
         return category_mapping
     
     def populate_graph(self):
@@ -97,6 +103,41 @@ class Graph:
             self.right_center_id,
             relation=Edge(self.env.object_position[1]),
         )
+        
+        # dummies
+        if self.env.deploy_dummies:
+            for dummy_center, dummy_type in self.env.dummies:
+                dummy_id = self.get_node_id()
+                self.G.add_node(
+                    dummy_id,
+                    pos=dummy_center,
+                    semantic_class=self.category_mapping[dummy_type],
+                )
+                if dummy_center[1] < self.env.center[1]:
+                    close_plane_id = self.left_center_id
+                else:
+                    close_plane_id = self.right_center_id
+                if dummy_center[0] > self.env.center[0]:
+                    relation = Edge(self.env.object_position[0])
+                else:
+                    relation = Edge(self.env.object_position[1])
+                self.G.add_edge(dummy_id, close_plane_id, relation=relation)
+
+        # room
+        self.room_id = self.get_node_id()
+        self.G.add_node(
+            self.room_id,
+            pos=self.env.center,
+            semantic_class=self.category_mapping["room"],
+        )
+        
+        # add in_room edges for all nodes except for the room node
+        for i in range(0, self.node_id_count-1):
+            self.G.add_edge(
+                i,
+                self.room_id,
+                relation=Edge.inRoom,
+            )
 
     def get_node_id(self):
         node_id_count = self.node_id_count
@@ -139,6 +180,34 @@ class RelationalEnv(gym.Env):
         self.modalities = env_config["modalities"]
         self.action_space = Discrete(2)
         self.resolution = (128, 128, 3)
+        
+        # fixed centers
+        self.center = np.array(
+            (self.resolution[0] / 2, self.resolution[1] / 2), 
+            dtype=np.uint16,
+        )
+        self.left_plane_center = np.array(
+            (self.resolution[0] / 2, self.resolution[1] / 4), 
+            dtype=np.uint16,
+        )
+        self.right_plane_center = np.array(
+            (self.resolution[0] / 2, self.resolution[1] - self.resolution[1] / 4),
+            dtype=np.uint16,
+        )
+        
+        # object centers
+        self.left_object_center = None
+        self.right_object_center = None
+        
+        # dummy infos
+        # dummy: a tuple of (center, type)
+        self.dummies = []
+        self.deploy_dummies = env_config.get("deploy_dummies", True)
+        self.min_dummies = env_config.get("min_dummies", 0)
+        self.max_dummies = env_config.get("max_dummies", 75)
+        self.num_dummies = None
+        self.num_dummy_types = env_config.get("num_dummy_types", 3)
+
         obs_dict = {
             "task_obs": Box(low=0, high=1, shape=(2,)),
         }
@@ -173,18 +242,6 @@ class RelationalEnv(gym.Env):
 
             obs_dict["scene_graph"] = gym.spaces.Dict(observation_dict)
 
-        self.left_plane_center = np.array(
-            (self.resolution[0] / 2, self.resolution[1] / 4), 
-            dtype=np.uint16,
-        )
-        self.right_plane_center = np.array(
-            (self.resolution[0] / 2, self.resolution[1] - self.resolution[1] / 4),
-            dtype=np.uint16,
-        )
-
-        self.left_object_center = None
-        self.right_object_center = None
-
         self.observation_space = Dict(obs_dict)
 
         self.debug = env_config.get("debug", False)
@@ -215,6 +272,14 @@ class RelationalEnv(gym.Env):
                 rr, cc = disk(object_center, 10, shape=img.shape)
                 img[rr, cc, :] = np.array([255, 0, 0], dtype=np.uint8)
 
+            if self.deploy_dummies:
+                for dummy_center, dummy_type in self.dummies:
+                    r_0, c_0 = dummy_center
+                    r = np.array([r_0+3, r_0-6, r_0+3])
+                    c = np.array([c_0-5, c_0, c_0+5])
+                    rr, cc = polygon(r, c)
+                    img[rr, cc, :] = np.array([0, 0, 255], dtype=np.uint8)
+
             obs["rgb"] = img
 
         if "scene_graph" in self.modalities:
@@ -222,13 +287,13 @@ class RelationalEnv(gym.Env):
 
         return obs
 
-    def get_object_center(self, object, plane_center):
-        if Category(object) is Category.below:
+    def get_object_center(self, pos, plane_center):
+        if Category(pos) is Category.below:
             return plane_center + self.rng.integers(
                 low=(self.resolution[0] // 8, -self.resolution[1] // 6),
                 high=(self.resolution[0] // 4, self.resolution[1] // 6),
             )
-        elif Category(object) is Category.above:
+        elif Category(pos) is Category.above:
             return plane_center + self.rng.integers(
                 low=(-self.resolution[0] // 4, -self.resolution[1] // 6),
                 high=(-self.resolution[0] // 8, self.resolution[1] // 6),
@@ -248,7 +313,17 @@ class RelationalEnv(gym.Env):
         self.right_object_center = self.get_object_center(self.object_position[1],
                                                            self.right_plane_center)
         
-        if "scene_graph" in self.modalities:
+        if self.deploy_dummies:
+            self.num_dummies = self.rng.integers(low=self.min_dummies, high=self.max_dummies+1)
+            dummy_centers = self.rng.integers(low=6,
+                                              high=(self.resolution[0]-6, self.resolution[1]-6), 
+                                              size=(self.num_dummies, 2))
+            dummy_types = ["dummy%d"%i for i in self.rng.integers(low=0,
+                                                                  high=self.num_dummy_types,
+                                                                  size=self.num_dummies)]
+            self.dummies = list(zip(dummy_centers, dummy_types))
+        
+        if "scene_graph" in self.modalities: 
             self.scene_graph.reset()
             self.scene_graph.populate_graph()
 

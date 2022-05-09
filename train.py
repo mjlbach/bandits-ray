@@ -53,6 +53,9 @@ def main(args):
                 "above": [
                     Edge.above,
                 ],
+                "inRoom": [
+                    Edge.inRoom,
+                ],
             }
         },
         "num_workers": num_envs,
