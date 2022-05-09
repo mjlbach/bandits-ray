@@ -16,11 +16,58 @@ from ray.rllib.utils.torch_utils import one_hot
 
 import torch
 from torch import nn
-
 import torch_geometric as pyg
 from gym.spaces import Box, Discrete, MultiDiscrete
-from bandit.models.soft_attention_gnn import SoftAttentionGNN
 
+from bandit.models import REGISTERED_MODELS
+from torch_geometric.data import HeteroData
+
+def generate_pyg_homogeneous_batch(input_dict):
+    edges = input_dict["obs"]["scene_graph"]["edges"]
+    nodes = input_dict["obs"]["scene_graph"]["nodes"]
+    graphs = []
+    idx = 0
+    for _ in nodes.lengths:
+        # TODO (mjlbach): This basically ensures there is at least a single node per graph, otherwise we cannot guarantee there is an input to the output MLP. Should we instead pad with sentinel values?
+        node_length = max(int(nodes.lengths[idx]), 1)
+        graph_edges = edges.values[idx][
+            : edges.lengths[idx].type(torch.int32)
+        ].type(torch.int64)
+        graph_nodes = nodes.values[idx][:node_length]
+        graph = pyg.data.Data(x=graph_nodes, edge_index=graph_edges.T)
+        graphs.append(graph)
+        idx += 1
+    batch = pyg.data.Batch.from_data_list(graphs)
+    if nodes.values.device.type == "cpu":
+        batch.cpu()
+    else:
+        batch.cuda()
+    return batch
+
+def generate_pyg_heterogeneous_batch(input_dict, value):
+    nodes = input_dict["obs"]["scene_graph"]["nodes"]
+    graphs = []
+    idx = 0
+    for _ in nodes.lengths:
+        # TODO (mjlbach): This basically ensures there is at least a single node per graph, otherwise we cannot guarantee there is an input to the output MLP. Should we instead pad with sentinel values?
+        node_length = max(int(nodes.lengths[idx]), 1)
+        data = HeteroData()
+        data['node'].x = nodes.values[idx][:node_length]
+        for key in value:
+            if key == 'nodes':
+                continue
+            else:
+                data['node', key, 'node'].edge_index = value[key].values[idx].T.long()
+        graphs.append(data)
+        idx += 1
+
+    batch = pyg.data.Batch.from_data_list(graphs)
+    
+    if nodes.values.device.type == "cpu":
+        batch.cpu()
+    else:
+        batch.cuda()
+    return batch
 
 class ComplexInputNetwork(TorchModelV2, nn.Module):
     """TorchModelV2 concat'ing CNN outputs to flat input(s), followed by FC(s).
@@ -71,12 +118,26 @@ class ComplexInputNetwork(TorchModelV2, nn.Module):
             # Image space.
             if key == "scene_graph":
                 name = "gnn_{}".format(key)
-                self.feature_extractors["scene_graph"] = SoftAttentionGNN(
-                    in_features=component["nodes"].child_space.shape[0]
-                )
+                self.graph_architecture = kwargs.get("graph_model", "SAM")
+                GraphModel = REGISTERED_MODELS[self.graph_architecture]
+                if self.graph_architecture in ["HGNN"]:
+                    node_metadata = ["node"]
+                    edge_metadata = []
+                    for candidate_edge in component:
+                        if candidate_edge not in ["node", "nodes"]:
+                            edge_metadata.append(['node', candidate_edge, 'node'])
+
+                    self.feature_extractors["scene_graph"] = GraphModel(
+                        in_features=component["nodes"].child_space.shape[0],
+                        metadata=(node_metadata, edge_metadata)
+                    )
+                else:
+                    self.feature_extractors["scene_graph"] = GraphModel(
+                        in_features=component["nodes"].child_space.shape[0]
+                    )
                 # THIS IS CRITICAL DO NOT FORGET THIS
                 self.add_module(name, self.feature_extractors[key])
-                concat_size += self.feature_extractors["scene_graph"].out_features  # type: ignore
+                concat_size += self.feature_extractors["scene_graph"].out_features #type: ignore
             elif key == "object_set":
                 name = "transformer_{}".format(key)
                 self.feature_extractors["object_set"] = TransformerModel(
@@ -104,7 +165,7 @@ class ComplexInputNetwork(TorchModelV2, nn.Module):
                 self.feature_extractors[key] = ModelCatalog.get_model_v2(
                     component,
                     action_space,
-                    num_outputs=256,
+                    num_outputs=None, #type: ignore
                     model_config=config,
                     framework="torch",
                     name=name,
@@ -128,7 +189,7 @@ class ComplexInputNetwork(TorchModelV2, nn.Module):
                 self.feature_extractors[key] = ModelCatalog.get_model_v2(
                     Box(-1.0, 1.0, (size,), np.float32),
                     action_space,
-                    num_outputs=None,
+                    num_outputs=None, #type: ignore
                     model_config=config,
                     framework="torch",
                     name=name,
@@ -138,7 +199,7 @@ class ComplexInputNetwork(TorchModelV2, nn.Module):
                 concat_size += self.feature_extractors[key].num_outputs
             # Everything else (1D Box).
             else:
-                name = "flat_{}".format(key)
+                name="flat_{}".format(key)
                 size = int(np.product(component.shape))
                 config = {
                     "fcnet_hiddens": model_config["fcnet_hiddens"],
@@ -148,10 +209,10 @@ class ComplexInputNetwork(TorchModelV2, nn.Module):
                 self.feature_extractors[key] = ModelCatalog.get_model_v2(
                     Box(-1.0, 1.0, (size,), np.float32),
                     action_space,
-                    num_outputs=None,
+                    num_outputs=None, #type: ignore
                     model_config=config,
                     framework="torch",
-                    name="flatten_{}".format(key),
+                    name="flatten_{}".format(key)
                 )
                 # THIS IS CRITICAL DO NOT FORGET THIS
                 self.add_module(name, self.feature_extractors[key])
@@ -160,7 +221,7 @@ class ComplexInputNetwork(TorchModelV2, nn.Module):
 
         # Optional post-concat FC-stack.
         post_fc_stack_config = {
-            "fcnet_hiddens": model_config.get("post_fcnet_hiddens", [128, 128, 128]),
+            "fcnet_hiddens": model_config.get("post_fcnet_hiddens", [ 128, 128, 128]),
             "fcnet_activation": model_config.get("post_fcnet_activation", "relu"),
         }
         self.post_fc_stack = ModelCatalog.get_model_v2(
@@ -204,9 +265,6 @@ class ComplexInputNetwork(TorchModelV2, nn.Module):
                 input_dict[SampleBatch.OBS], self.processed_obs_space, tensorlib="torch"
             )
 
-        graphs = []
-        idx = 0
-
         # Push observations through the different components
         # (CNNs, one-hot + FC, etc..).
         outs = []
@@ -216,7 +274,7 @@ class ComplexInputNetwork(TorchModelV2, nn.Module):
                     SampleBatch({SampleBatch.OBS: value})
                 )
                 outs.append(cnn_out)
-            elif key in ["proprioception", "task_obs"]:
+            elif key in ["one_hot"]:
                 if value.dtype in [torch.int32, torch.int64, torch.uint8]:
                     one_hot_in = {
                         SampleBatch.OBS: one_hot(
@@ -225,36 +283,20 @@ class ComplexInputNetwork(TorchModelV2, nn.Module):
                     }
                 else:
                     one_hot_in = {SampleBatch.OBS: value}
-                if not (one_hot_in["obs"].device.type == "cpu"):
-                    self.feature_extractors[key].cuda()
                 one_hot_out, _ = self.feature_extractors[key](SampleBatch(one_hot_in))
                 outs.append(one_hot_out)
             elif key in ["scene_graph"]:
-                edges = input_dict["obs"]["scene_graph"]["edges"]
-                nodes = input_dict["obs"]["scene_graph"]["nodes"]
-                for _ in nodes.lengths:
-                    # TODO (mjlbach): This basically ensures there is at least a single node per graph, otherwise we cannot guarantee there is an input to the output MLP. Should we instead pad with sentinel values?
-                    node_length = max(int(nodes.lengths[idx]), 1)
-                    graph_edges = edges.values[idx][
-                        : edges.lengths[idx].type(torch.int32)
-                    ].type(torch.int64)
-                    graph_nodes = nodes.values[idx][:node_length]
-                    graph = pyg.data.Data(x=graph_nodes, edge_index=graph_edges.T)
-                    graphs.append(graph)
-                    idx += 1
-                batch = pyg.data.Batch.from_data_list(graphs)
-                if nodes.values.device.type == "cpu":
-                    batch.cpu()
+                if self.graph_architecture in ["HGNN"]:
+                    batch = generate_pyg_heterogeneous_batch(input_dict, value)
                 else:
-                    batch.cuda()
-
+                    batch = generate_pyg_homogeneous_batch(input_dict)
                 outs.append(self.feature_extractors[key](batch))
             elif key in ["object_set"]:
                 val = SampleBatch({SampleBatch.OBS: value})
                 val = val["obs"]
                 out = self.feature_extractors[key](val.values, val.lengths)
                 outs.append(out)
-            else:
+            elif key in ["task_obs"]:
                 nn_out, _ = self.feature_extractors[key](
                     SampleBatch(
                         {
@@ -265,6 +307,8 @@ class ComplexInputNetwork(TorchModelV2, nn.Module):
                     )
                 )
                 outs.append(nn_out)
+            else:
+                raise Exception("Unsupported observation modality")
 
         # Concat all outputs and the non-image inputs.
         out = torch.cat(outs, dim=1)

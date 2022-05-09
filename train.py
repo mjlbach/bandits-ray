@@ -29,6 +29,9 @@ def main(args):
         "env": "env_creator",
         "model": {
             "custom_model": "graph_extractor",  # THIS LINE IS THE BROKEN ONE
+            "custom_model_config": {
+                "graph_model": "GNN",
+            },
             "post_fcnet_hiddens": [128, 128, 128],
             # "fcnet_hiddens": [128, 128, 128],
             "conv_filters": [[16, [4, 4], 4], [32, [4, 4], 4], [256, [8, 8], 2]],

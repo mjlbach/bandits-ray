@@ -6,6 +6,7 @@ from torch_scatter import scatter
 
 from torch_geometric.nn import MLP
 
+
 def weighted_pool(x, weight, batch, size=None):
     size = int(batch.max().item() + 1) if size is None else size
     x * weight.reshape(-1, 1)
@@ -17,9 +18,9 @@ def graph_sum(x, batch, size=None):
     return scatter(x, batch, dim=0, dim_size=size, reduce="sum")
 
 
-class SoftAttentionGNN(torch.nn.Module):
+class SAM(torch.nn.Module):
     def __init__(self, in_features, out_features=256):
-        super().__init__()
+        super(SAM, self).__init__()
         self.in_features = in_features
         self.out_features = out_features
 

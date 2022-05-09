@@ -133,14 +133,14 @@ class Graph:
 
 
 class RelationalEnv(gym.Env):
-    def __init__(self, debug=False, modalities=["vectorized_goal", "scene_graph"]):
+    def __init__(self, debug=False, modalities=["task_obs", "scene_graph"]):
         super().__init__()
 
         self.modalities = modalities
         self.action_space = Discrete(2)
         self.resolution = (128, 128, 3)
         obs_dict = {
-            "vectorized_goal": Box(low=0, high=1, shape=(2,)),
+            "task_obs": Box(low=0, high=1, shape=(2,)),
         }
 
         if "task_obs" in self.modalities:
@@ -201,7 +201,7 @@ class RelationalEnv(gym.Env):
 
         goal = np.zeros((2,))
         goal[self.target_obj_category] = 1
-        obs["vectorized_goal"] = goal.astype(np.float32)
+        obs["task_obs"] = goal.astype(np.float32)
 
         if "rgb" in self.modalities:
             img = np.zeros(self.resolution, dtype=np.uint8)

@@ -25,7 +25,8 @@ class GNN(torch.nn.Module):
         edge_index = data.edge_index
         batch = data.batch
 
-        # First round of graph convolution
+        # Head 1, no feature reduction, compute the per-node encoding
+        # including effects propogated from local neighbors
         x = self.conv1(x, edge_index)
         x = F.relu(x)
         x = self.conv2(x, edge_index)
@@ -33,8 +34,8 @@ class GNN(torch.nn.Module):
         x = self.conv3(x, edge_index)
         x = F.relu(x)
 
-        # Weight the node features by the node attention
-        x = global_mean_pool(x, batch)
+        # Pool the model
+        x = global_mean_pool(x , batch)
 
         # Final encoding layers
         x = self.mlp(x)
