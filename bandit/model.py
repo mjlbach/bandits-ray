@@ -118,7 +118,7 @@ class ComplexInputNetwork(TorchModelV2, nn.Module):
             # Image space.
             if key == "scene_graph":
                 name = "gnn_{}".format(key)
-                self.graph_architecture = kwargs.get("graph_model", "SAM")
+                self.graph_architecture = kwargs["graph_model"]
                 GraphModel = REGISTERED_MODELS[self.graph_architecture]
                 if self.graph_architecture in ["HGNN"]:
                     node_metadata = ["node"]
