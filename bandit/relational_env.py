@@ -27,7 +27,9 @@ class Graph:
     def __init__(self, 
                  env, 
                  features=["semantic_class"], 
-                 edge_groups={"below": [Edge.below], "above": [Edge.above]}):
+                 edge_groups={"below": [Edge.below], 
+                              "above": [Edge.above],
+                              "inRoom": [Edge.inRoom]}):
         self.env = env
         self.edge_type_to_group = {}
         self.edge_groups = edge_groups
@@ -54,9 +56,11 @@ class Graph:
         
     def consolidate_mapping(self):
         category_mapping = {}
-        category_mapping["plane"] = 0
-        category_mapping["object"] = 1
-        category_mapping["room"] = 1
+        category_mapping["room"] = 0
+        category_mapping["plane"] = 1
+        category_mapping["object"] = 2
+        for i in range(self.env.num_dummy_types):
+            category_mapping["dummy%d"%i] = i + 3
         return category_mapping
     
     def populate_graph(self):
@@ -72,13 +76,6 @@ class Graph:
             self.right_center_id,
             pos=self.env.right_plane_center,
             semantic_class=self.category_mapping["plane"],
-        )
-
-        self.room_node = self.get_node_id()
-        self.G.add_node(
-            self.room_node,
-            pos=self.env.right_plane_center,
-            semantic_class=self.category_mapping["room"],
         )
 
         # left object
@@ -106,34 +103,41 @@ class Graph:
             self.right_center_id,
             relation=Edge(self.env.object_position[1]),
         )
-        #
-        # # Add room edges
-        # self.G.add_edge(
-        #     self.right_center_id,
-        #     self.room_node,
-        #     relation=Edge.inRoom,
-        # )
-        #
-        # # Add room edges
-        # self.G.add_edge(
-        #     self.left_center_id,
-        #     self.room_node,
-        #     relation=Edge.inRoom,
-        # )
-        #
-        # # Add room edges
-        # self.G.add_edge(
-        #     self.left_object_id,
-        #     self.room_node,
-        #     relation=Edge.inRoom,
-        # )
-        #
-        # # Add room edges
-        # self.G.add_edge(
-        #     self.right_object_id,
-        #     self.room_node,
-        #     relation=Edge.inRoom,
-        # )
+        
+        # dummies
+        if self.env.deploy_dummies:
+            for dummy_center, dummy_type in self.env.dummies:
+                dummy_id = self.get_node_id()
+                self.G.add_node(
+                    dummy_id,
+                    pos=dummy_center,
+                    semantic_class=self.category_mapping[dummy_type],
+                )
+                if dummy_center[1] < self.env.center[1]:
+                    close_plane_id = self.left_center_id
+                else:
+                    close_plane_id = self.right_center_id
+                if dummy_center[0] > self.env.center[0]:
+                    relation = Edge(self.env.object_position[0])
+                else:
+                    relation = Edge(self.env.object_position[1])
+                self.G.add_edge(dummy_id, close_plane_id, relation=relation)
+
+        # room
+        self.room_id = self.get_node_id()
+        self.G.add_node(
+            self.room_id,
+            pos=self.env.center,
+            semantic_class=self.category_mapping["room"],
+        )
+        
+        # add in_room edges for all nodes except for the room node
+        for i in range(0, self.node_id_count-1):
+            self.G.add_edge(
+                i,
+                self.room_id,
+                relation=Edge.inRoom,
+            )
 
     def get_node_id(self):
         node_id_count = self.node_id_count
@@ -170,12 +174,46 @@ class Graph:
 
 
 class RelationalEnv(gym.Env):
-    def __init__(self, debug=False, modalities=["vectorized_goal", "scene_graph"]):
+    def __init__(self, 
+                 debug=False, 
+                 modalities=["vectorized_goal", "scene_graph"],
+                 deploy_dummies=True,
+                 min_dummies=0,
+                 max_dummies=75,
+                 num_dummy_types=3):
         super().__init__()
 
         self.modalities = modalities
         self.action_space = Discrete(2)
         self.resolution = (128, 128, 3)
+        
+        # fixed centers
+        self.center = np.array(
+            (self.resolution[0] / 2, self.resolution[1] / 2), 
+            dtype=np.uint16,
+        )
+        self.left_plane_center = np.array(
+            (self.resolution[0] / 2, self.resolution[1] / 4), 
+            dtype=np.uint16,
+        )
+        self.right_plane_center = np.array(
+            (self.resolution[0] / 2, self.resolution[1] - self.resolution[1] / 4),
+            dtype=np.uint16,
+        )
+        
+        # object centers
+        self.left_object_center = None
+        self.right_object_center = None
+        
+        # dummy infos
+        # dummy: a tuple of (center, type)
+        self.dummies = []
+        self.deploy_dummies = deploy_dummies
+        self.min_dummies = min_dummies
+        self.max_dummies = max_dummies
+        self.num_dummies = None
+        self.num_dummy_types = num_dummy_types
+        
         obs_dict = {
             "vectorized_goal": Box(low=0, high=1, shape=(2,)),
         }
@@ -196,6 +234,9 @@ class RelationalEnv(gym.Env):
                     ],
                     "above": [
                         Edge.above,
+                    ],
+                    "inRoom": [
+                        Edge.inRoom,
                     ]
                 },
             )
@@ -204,29 +245,17 @@ class RelationalEnv(gym.Env):
                         Box(
                             low=-np.inf, high=np.inf, shape=(self.scene_graph.node_dim,), dtype=np.float32
                         ),
-                        max_len=10,
+                        max_len=100,
                     ),
             }
 
             for edge_type in self.scene_graph.edge_groups:
                 observation_dict[edge_type] = Repeated(
                     Box(low=0, high=1000, shape=(2,), dtype=np.int64),
-                    max_len=10,
+                    max_len=100,
                 )
 
             obs_dict["scene_graph"] = gym.spaces.Dict(observation_dict)
-
-        self.left_plane_center = np.array(
-            (self.resolution[0] / 2, self.resolution[1] / 4), 
-            dtype=np.uint16,
-        )
-        self.right_plane_center = np.array(
-            (self.resolution[0] / 2, self.resolution[1] - self.resolution[1] / 4),
-            dtype=np.uint16,
-        )
-
-        self.left_object_center = None
-        self.right_object_center = None
 
         self.observation_space = Dict(obs_dict)
 
@@ -257,6 +286,14 @@ class RelationalEnv(gym.Env):
             for object_center in (self.left_object_center, self.right_object_center):
                 rr, cc = disk(object_center, 10, shape=img.shape)
                 img[rr, cc, :] = np.array([255, 0, 0], dtype=np.uint8)
+            
+            if self.deploy_dummies:
+                for dummy_center, dummy_type in self.dummies:
+                    r_0, c_0 = dummy_center
+                    r = np.array([r_0+3, r_0-6, r_0+3])
+                    c = np.array([c_0-5, c_0, c_0+5])
+                    rr, cc = polygon(r, c)
+                    img[rr, cc, :] = np.array([0, 0, 255], dtype=np.uint8)
 
             obs["rgb"] = img
 
@@ -265,13 +302,13 @@ class RelationalEnv(gym.Env):
 
         return obs
 
-    def get_object_center(self, object, plane_center):
-        if Category(object) is Category.below:
+    def get_object_center(self, pos, plane_center):
+        if Category(pos) is Category.below:
             return plane_center + self.rng.integers(
                 low=(self.resolution[0] // 8, -self.resolution[1] // 6),
                 high=(self.resolution[0] // 4, self.resolution[1] // 6),
             )
-        elif Category(object) is Category.above:
+        elif Category(pos) is Category.above:
             return plane_center + self.rng.integers(
                 low=(-self.resolution[0] // 4, -self.resolution[1] // 6),
                 high=(-self.resolution[0] // 8, self.resolution[1] // 6),
@@ -291,7 +328,17 @@ class RelationalEnv(gym.Env):
         self.right_object_center = self.get_object_center(self.object_position[1],
                                                            self.right_plane_center)
         
-        if "scene_graph" in self.modalities:
+        if self.deploy_dummies:
+            self.num_dummies = self.rng.integers(low=self.min_dummies, high=self.max_dummies+1)
+            dummy_centers = self.rng.integers(low=6,
+                                              high=(self.resolution[0]-6, self.resolution[1]-6), 
+                                              size=(self.num_dummies, 2))
+            dummy_types = ["dummy%d"%i for i in self.rng.integers(low=0,
+                                                                  high=self.num_dummy_types,
+                                                                  size=self.num_dummies)]
+            self.dummies = list(zip(dummy_centers, dummy_types))
+        
+        if "scene_graph" in self.modalities: 
             self.scene_graph.reset()
             self.scene_graph.populate_graph()
 
@@ -332,7 +379,7 @@ if __name__ == "__main__":
     env.observation_space.contains(obs)
     import torch
     from torch_geometric.data import HeteroData, Batch
-    from bandit.models.hetero.gnn import HGNN
+    from bandits_ray.bandit.models.hetero.gnn import HGNN
 
     # data = Data(x=torch.tensor(obs['scene_graph']['nodes'], dtype=torch.float), edge_index=torch.tensor(obs['scene_graph']['edges'], dtype=torch.long))
     data = HeteroData()
