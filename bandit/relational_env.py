@@ -2,7 +2,7 @@ import gym
 import numpy as np
 from enum import Enum
 from gym.spaces import Discrete, Box, Dict
-from skimage.draw import disk, rectangle
+from skimage.draw import disk, rectangle, polygon
 from IPython import embed
 import matplotlib.pyplot as plt
 import networkx as nx
@@ -26,7 +26,7 @@ class Edge(Enum):
 class Graph:
     def __init__(self, 
                  env, 
-                 features=["pos", "semantic_class"], 
+                 features=["semantic_class"], 
                  edge_groups={"below": [Edge.below], 
                               "above": [Edge.above],
                               "inRoom": [Edge.inRoom]}):

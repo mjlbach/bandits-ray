@@ -120,7 +120,7 @@ class ComplexInputNetwork(TorchModelV2, nn.Module):
                 name = "gnn_{}".format(key)
                 self.graph_architecture = kwargs["graph_model"]
                 GraphModel = REGISTERED_MODELS[self.graph_architecture]
-                if self.graph_architecture in ["HGNN"]:
+                if self.graph_architecture in ["HGNN", "HSAM"]:
                     node_metadata = ["node"]
                     edge_metadata = []
                     for candidate_edge in component:
@@ -286,7 +286,7 @@ class ComplexInputNetwork(TorchModelV2, nn.Module):
                 one_hot_out, _ = self.feature_extractors[key](SampleBatch(one_hot_in))
                 outs.append(one_hot_out)
             elif key in ["scene_graph"]:
-                if self.graph_architecture in ["HGNN"]:
+                if self.graph_architecture in ["HGNN", "HSAM"]:
                     batch = generate_pyg_heterogeneous_batch(input_dict, value)
                 else:
                     batch = generate_pyg_homogeneous_batch(input_dict)
