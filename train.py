@@ -23,7 +23,7 @@ from torch_geometric.data import HeteroData, Batch
 def main(args):
     register_env("env_creator", env_creator)
 
-    n_steps = 128
+    n_steps = 160
     num_envs = 8
     training_timesteps = 200000
     save_freq = 20000
@@ -64,8 +64,8 @@ def main(args):
         "num_workers": num_envs,
         "framework": "torch",
         "seed": args.seed,
-        "lr": 1e-5,
-        "train_batch_size": n_steps,
+        "lr": 5e-5,
+        "num_gpus": 1,
     }
 
     experiment_save_path = "experiments"
