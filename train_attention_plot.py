@@ -20,6 +20,25 @@ import matplotlib.pyplot as plt
 
 from torch_geometric.data import HeteroData, Batch
 
+VIS_ENV_CONFIG = {
+    "modalities": ["task_obs", "scene_graph"],
+    "features": ["semantic_class"],
+    "debug": False,
+    "min_dummies": 75,
+    "max_dummies": 75,
+    "edge_groups": {
+        "below": [
+            Edge.below,
+        ],
+        "above": [
+            Edge.above,
+        ],
+        "inRoom": [
+            Edge.inRoom,
+        ],
+    }
+}
+
 def draw_attention(env, obs, color_dict):
     G = env.scene_graph.G
     pos = nx.get_node_attributes(G,'pos')
@@ -43,20 +62,13 @@ def get_hetero_data_batch(obs):
     batch = Batch.from_data_list([data])
     return batch
 
-
 def main(args):
     register_env("env_creator", env_creator)
 
-    # n_steps = 160
-    # num_envs = 8
-
-    # training_timesteps = 5e8
-    # save_freq = 1e6
-
-    n_steps = 500
-    num_envs = 1
-    training_timesteps = 10000
-    save_freq = 2500
+    n_steps = 200
+    num_envs = 8
+    training_timesteps = 50000
+    save_freq = 5000
 
     num_epochs = np.round(training_timesteps / n_steps).astype(int)
     save_ep_freq = np.round(num_epochs / (training_timesteps / save_freq)).astype(int)
@@ -66,7 +78,7 @@ def main(args):
         "model": {
             "custom_model": "graph_extractor",  # THIS LINE IS THE BROKEN ONE
             "custom_model_config": {
-                "graph_model": "HSAM",
+                "graph_model": args.model,
             },
             "post_fcnet_hiddens": [128, 128, 128],
             # "fcnet_hiddens": [128, 128, 128],
@@ -76,14 +88,9 @@ def main(args):
             "modalities": ["task_obs", "scene_graph"],
             "features": ["semantic_class"],
             "debug": False,
-            # "deploy_dummies": False,
-            # "edge_groups": {
-            #     "edges": [
-            #         Edge.below,
-            #         Edge.above,
-            #         Edge.inRoom,
-            #     ],
-            # }
+            "deploy_dummies": args.deploy_dummies,
+            "min_dummies": args.min_dummies,
+            "max_dummies": args.max_dummies,
             "edge_groups": {
                 "below": [
                     Edge.below,
@@ -98,23 +105,21 @@ def main(args):
         },
         "num_workers": num_envs,
         "framework": "torch",
-        "seed": 0,
-        # "lambda": 0.9,
-        "lr": 1e-4,
+        "seed": args.seed,
+        "lr": 5e-5,
         "train_batch_size": n_steps,
-        # "rollout_fragment_length":  n_steps // num_envs,
-        # "num_sgd_iter": 30,
-        # "sgd_minibatch_size": 1,
-        # "gamma": 0.99,
-        # "create_env_on_driver": False,
-        # "num_gpus": 1,
-        # "callbacks": MetricsCallback,
-        # "log_level": "DEBUG",
-        # "_disable_preprocessor_api": False,
+        "num_gpus": 1,
     }
 
     experiment_save_path = "experiments"
-    experiment_name = args.name
+
+    if args.name is None:
+        experiment_name = "viz_{}_{}-{}_seed_{}".format(args.model, 
+                                                    args.min_dummies, 
+                                                    args.max_dummies,
+                                                    args.seed)
+    else:
+        experiment_name = args.name
 
     experiment_path = Path(experiment_save_path, experiment_name)
     checkpoint_path = experiment_path.joinpath("checkpoints")
@@ -129,29 +134,8 @@ def main(args):
         logger_creator=lambda x: UnifiedLogger(x, log_path),  # type: ignore
     )
 
-
-    # define configuration for env in which visualize weights
-    env_config = {
-        "modalities": ["task_obs", "scene_graph"],
-        "features": ["semantic_class"],
-        "debug": False,
-        "min_dummies": 75,
-        "max_dummies": 75,
-        "edge_groups": {
-            "below": [
-                Edge.below,
-            ],
-            "above": [
-                Edge.above,
-            ],
-            "inRoom": [
-                Edge.inRoom,
-            ],
-        }
-    }
-
-    # define sample env and related data
-    sample_env = env_creator(env_config)
+    # define the sample env
+    sample_env = env_creator(VIS_ENV_CONFIG)
     obs = sample_env.reset()
     num_nodes = sample_env.scene_graph.node_id_count
     batch = get_hetero_data_batch(obs)
@@ -161,6 +145,10 @@ def main(args):
     draw_attention(sample_env, obs, color_dict)
     plt.savefig(experiment_path.joinpath("attention_target.png"))
     plt.clf()
+
+    print("Model: ", args.model)
+    print("Range of number of dummies: ", args.min_dummies, args.max_dummies)
+    print("Seed: ", args.seed)
 
     for i in range(num_epochs):
         print("epoch:", i)
@@ -190,9 +178,39 @@ if __name__ == "__main__":
     parser.add_argument(
         "--name",
         "-n",
-        default="test",
+        default=None,
         help="which config file to use [default: use yaml files in examples/configs]",
     )
+    parser.add_argument(
+        "--model",
+        default="HGNN",
+        help="GNN model",
+    )
+    parser.add_argument(
+        "--deploy_dummies",
+        type=bool,
+        default=True,
+        help="whether to deploy dummies",
+    )
+    parser.add_argument(
+        "--min_dummies",
+        type=int,
+        default=0,
+        help="minimum number of dummies",
+    )
+    parser.add_argument(
+        "--max_dummies",
+        type=int,
+        default=0,
+        help="maximum number of dummies",
+    )
+    parser.add_argument(
+        "--seed",
+        type=int,
+        default=0,
+        help="seed",
+    )
+
     args = parser.parse_args()
     main(args)
 

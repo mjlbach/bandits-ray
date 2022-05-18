@@ -1,4 +1,4 @@
-for SEED in 1 2 3
+for SEED in 1 2
 do
     for MAX_DUMMIES in 0 75
     do
