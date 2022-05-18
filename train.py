@@ -65,6 +65,7 @@ def main(args):
         "framework": "torch",
         "seed": args.seed,
         "lr": 5e-5,
+        "train_batch_size": n_steps,
         "num_gpus": 1,
     }
 
