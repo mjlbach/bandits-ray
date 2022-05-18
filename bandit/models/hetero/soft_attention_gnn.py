@@ -7,6 +7,7 @@ from torch_scatter import scatter
 
 from torch_geometric.nn import MLP
 
+NUM_CATEGORIES = 6
 
 def weighted_pool(x, weight, batch, size=None):
     size = int(batch.max().item() + 1) if size is None else size
@@ -48,8 +49,11 @@ class HSAM(torch.nn.Module):
         x_dict = self.conv3(x_dict, edge_index_dict)
         x_dict = {key: x.relu() for key, x in x_dict.items()}
 
-        # weight = ((x_dict_init['node'] == 1) | (x_dict_init['node'] == 2)).float()
-        weight = self.weight_mlp(x_dict['node'])
+        # one hot encoding
+        x_encoded = x_dict_init['node']
+        x_encoded = F.one_hot(torch.squeeze(x_dict_init['node'], 1).long(), 
+                              num_classes=NUM_CATEGORIES).float()
+        weight = self.weight_mlp(x_encoded)
         weight = softmax(weight, batch['node'])
 
         x = graph_sum(x_dict['node'] * weight, batch['node'])
