@@ -142,7 +142,7 @@ def main(args):
         "seed": args.seed,
         "lr": 5e-5,
         "train_batch_size": n_steps,
-        # "num_gpus": 1,
+        "num_gpus": 1,
     }
 
     experiment_save_path = "experiments"
