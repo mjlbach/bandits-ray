@@ -9,10 +9,13 @@ import networkx as nx
 
 from ray.rllib.utils.spaces.repeated import Repeated
 
+DUMMY_COLOR_DICT = {"dummy0": (0, 0, 255), 
+                    "dummy1": (128, 0, 255), 
+                    "dummy2": (0, 128, 255)}
+
 class Choice(Enum):
     left = 0
     right = 1
-
 
 class Category(Enum):
     below = 0
@@ -267,18 +270,19 @@ class RelationalEnv(gym.Env):
                 plane_start = plane_start.astype(np.uint16)
                 rr, cc = rectangle(plane_start, extent=plane_extent, shape=img.shape)
                 img[rr, cc, :] = np.array([0, 255, 0], dtype=np.uint8)
-
-            for object_center in (self.left_object_center, self.right_object_center):
-                rr, cc = disk(object_center, 10, shape=img.shape)
-                img[rr, cc, :] = np.array([255, 0, 0], dtype=np.uint8)
-
+            
             if self.deploy_dummies:
                 for dummy_center, dummy_type in self.dummies:
                     r_0, c_0 = dummy_center
                     r = np.array([r_0+3, r_0-6, r_0+3])
                     c = np.array([c_0-5, c_0, c_0+5])
                     rr, cc = polygon(r, c)
-                    img[rr, cc, :] = np.array([0, 0, 255], dtype=np.uint8)
+                    img[rr, cc, :] = np.array(DUMMY_COLOR_DICT[dummy_type], 
+                                              dtype=np.uint8)
+            
+            for object_center in (self.left_object_center, self.right_object_center):
+                rr, cc = disk(object_center, 10, shape=img.shape)
+                img[rr, cc, :] = np.array([255, 0, 0], dtype=np.uint8)
 
             obs["rgb"] = img
 
