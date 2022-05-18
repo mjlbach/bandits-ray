@@ -23,10 +23,10 @@ from torch_geometric.data import HeteroData, Batch
 def main(args):
     register_env("env_creator", env_creator)
 
-    n_steps = 500
-    num_envs = 1
+    n_steps = 128
+    num_envs = 8
     training_timesteps = 200000
-    save_freq = 2500
+    save_freq = 20000
 
     num_epochs = np.round(training_timesteps / n_steps).astype(int)
     save_ep_freq = np.round(num_epochs / (training_timesteps / save_freq)).astype(int)
