@@ -192,7 +192,7 @@ def main(args):
     model = trainer.get_policy().model
     gnn_model = model.feature_extractors["scene_graph"]
     weights = gnn_model.get_weights(batch)
-    weights = torch.flatten(weights).detach().numpy()
+    weights = torch.flatten(weights).detach().cpu().numpy()
     
     # draw the attention map at each epoch
     color_dict = dict(zip(range(num_nodes), weights))
