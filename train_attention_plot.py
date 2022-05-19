@@ -25,6 +25,8 @@ DUMMY_COLOR_DICT = {"dummy0": (0, 0, 255),
                     "dummy1": (128, 0, 255), 
                     "dummy2": (0, 128, 255)}
 
+SHAPES = {0: "D", 1: "s", 2: "o", 3: "^", 4: "^", 5: "^"}
+
 VIS_ENV_CONFIG = {
     "modalities": ["task_obs", "scene_graph"],
     "features": ["semantic_class"],
@@ -67,19 +69,21 @@ def draw_env(env):
         img[rr, cc, :] = np.array([255, 0, 0], dtype=np.uint8)
     plt.imshow(img)
 
-def draw_attention(env, obs, color_dict):
+def draw_attention(env, obs, weights):
     G = env.scene_graph.G
     positions = nx.get_node_attributes(G,'pos')
     positions = {i: np.array([pos[1], env.resolution[0]-pos[0]]) for i, pos in positions.items()}
-    label_dict = {i: int(category) for i, category in enumerate(obs["scene_graph"]["nodes"])}
-    low, high = min(color_dict.values()), max(color_dict.values())
+    low, high = min(weights), max(weights)
     norm = mpl.colors.Normalize(vmin=low, vmax=high, clip=True)
     mapper = mpl.cm.ScalarMappable(norm=norm, cmap=mpl.cm.coolwarm)
-    nx.draw(G, 
-            positions, 
-            labels=label_dict, 
-            with_labels = True,
-            node_color=[mapper.to_rgba(i) for i in color_dict.values()])
+    for node_type, shape in reversed(SHAPES.items()):
+        nodelist = [node_tuple[0] for node_tuple in filter(lambda x: int(x[1]) == node_type,  
+                                                            enumerate(obs["scene_graph"]["nodes"]))]
+        nx.draw(G, 
+                positions,
+                node_shape=shape,
+                nodelist=nodelist,
+                node_color=mapper.to_rgba(weights[nodelist]))
 
 def get_hetero_data_batch(obs):
     data = HeteroData()
@@ -142,7 +146,7 @@ def main(args):
         "seed": args.seed,
         "lr": 5e-5,
         "train_batch_size": n_steps,
-        "num_gpus": 1,
+        # "num_gpus": 1,
     }
 
     experiment_save_path = "experiments"
@@ -180,8 +184,8 @@ def main(args):
     plt.clf()
     
     # draw the target attention map
-    color_dict = {i: (1 if int(category) in [1, 2] else 0)  for i, category in enumerate(obs["scene_graph"]["nodes"])}
-    draw_attention(sample_env, obs, color_dict)
+    weights = np.array([1 if int(category) in [1, 2] else 0 for category in obs["scene_graph"]["nodes"]])
+    draw_attention(sample_env, obs, weights)
     plt.savefig(experiment_path.joinpath("attention_target.png"))
     plt.clf()
 
@@ -195,8 +199,7 @@ def main(args):
     weights = torch.flatten(weights).detach().cpu().numpy()
     
     # draw the attention map at each epoch
-    color_dict = dict(zip(range(num_nodes), weights))
-    draw_attention(sample_env, obs, color_dict)
+    draw_attention(sample_env, obs, weights)
     plt.savefig(experiment_path.joinpath("attention_initial.png"))
     plt.clf()
 
@@ -212,8 +215,7 @@ def main(args):
             weights = torch.flatten(weights).detach().cpu().numpy()
             
             # draw the attention map at each epoch
-            color_dict = dict(zip(range(num_nodes), weights))
-            draw_attention(sample_env, obs, color_dict)
+            draw_attention(sample_env, obs, weights)
             plt.savefig(experiment_path.joinpath("attention_ep_%d.png"%i))
             plt.clf()
 
